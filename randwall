@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+#Simple script for setting a random wallpaper 
+#Images must be in wallpaper folder in your home directory
+#by defpy
+IFS=$'\t\n'
+PAPERS=${HOME}/wallpaper/
+
+wall_paper()
+{
+	cd $PAPERS
+	BG_IMG=$(ls | grep -i -E '(.bmp|.gif|.png|.jpg)$' | sort -R | head -1)
+	FILE=$(head .wall.config);
+	if [ "$BG_IMG" != "$FILE" ]; then
+		echo $BG_IMG > .wall.config
+		feh --bg-scale "$FILE"
+		exit 0;
+	else
+		wall_paper
+	fi
+}
+
+if [ -d "$PAPERS" ]; then
+	wall_paper
+else
+	mkdir $PAPERS
+	wall_paper
+fi

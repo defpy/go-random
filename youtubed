@@ -1,0 +1,198 @@
+#!/bin/bash
+#
+# A script for downloading youtube videos with youtube-dl
+# Youtube video will download automatically if url is copied to clipboard.
+# Batch files must be saved as .txt fil
+# Have fun ;)
+#
+# By defpy
+
+IFS=$'\t\n'
+AUTO_LOAD=${HOME}/.youtubed_load
+LOAD_CLIPBOARD=1
+LOG_FILE=${HOME}/.youtubed_log
+LOG_FILE_CLEAN=${HOME}/.youtubed_log_clean
+LOG_BACKUP=${HOME}/.youtubed_log_bk
+LOG_NOW=${HOME}/.youtubed_now
+BATCH_CONFIG=${HOME}/.youtubed_batch
+BATCH_FILE_CLEAN=${HOME}/.youtubed_batch_clean
+
+get_youtube()
+{
+	if [ "$#" -lt 1 ]; then
+		echo "YouTube"
+		FILE=$(xclip -o -selection clipboard);
+		if [ "$(xclip -o -selection clipboard | awk '{ print index($0,"/v/") }')" != "0" ]; then
+			FILE=$(xclip -o -selection clipboard | sed 's/\/v\//\/watch?v=/g');
+		fi
+	else
+		echo "YouTube batch"
+		FILE=$@
+		if [ "$@ | awk '{ print index($0,"/v/") }')" != "0" ]; then
+			FILE=$(echo "$FILE" | sed 's/\/v\//\/watch?v=/g');
+		fi
+	fi
+	echo "$FILE"
+	check_log
+	TITLE=$(curl $FILE | awk '/<title>/' | cut -d '>' -f 2 | cut -d '<' -f 1);
+	if [ "$LOAD_CLIPBOARD" = "0" ]; then
+		LOAD_CLIPBOARD=1
+	elif [ -e "$LOG_NOW" ] && [ "$(head $LOG_NOW)" == "$TITLE" ]; then
+		interface
+	else 	
+		echo "$TITLE" >> $LOG_FILE
+		echo "$TITLE" > $LOG_NOW
+		if [ "$#" -lt 1 ]; then 
+			zenity --title="YoutubeD - Downloading video" --text="$TITLE"  --info --timeout 1
+		fi
+		youtube-dl -l $FILE && keep_log
+	fi
+}
+
+start_check()
+{
+	if [ -e "$LOG_BACKUP" ] && [ "$(head $LOG_BACKUP)" == "finished" ]; then
+		echo "Start"
+		echo "" > $LOG_FILE
+		echo "" > $LOG_BACKUP
+		echo "" > $LOG_NOW
+	fi
+	auto_load "n"
+}
+
+auto_load()
+{
+	if [ $@ == "change" ]; then 
+		if [ "$(head $AUTO_LOAD)" == "on" ]; then
+			echo "off" > $AUTO_LOAD
+			zenity --title="YoutubeD - Settings" --text="Click'n'load - OFF"  --info --timeout 1
+		elif [ "$(head $AUTO_LOAD)" == "off" ]; then
+			echo "on" > $AUTO_LOAD
+			zenity --title="YoutubeD - Settings" --text="Click'n'load - ON"  --info --timeout 1
+		fi
+		interface
+	else
+		if [ -e "$AUTO_LOAD" ] && [ "$(head $AUTO_LOAD)" == "on" ]; then
+			start_youtubed
+		elif [ -e "$AUTO_LOAD" ] && [ "$(head $AUTO_LOAD)" == "off" ]; then
+			interface
+		else
+			echo "off" > $AUTO_LOAD
+			interface
+		fi
+	fi
+}
+
+check_log()
+{
+	if [ -e "$LOG_FILE" ]; then
+		echo "Log found"
+	else
+		echo "" > $LOG_FILE
+	fi
+}
+
+batch_download()
+{
+	grep -v '^$' $BATCH_FILE > $BATCH_FILE_CLEAN
+	grep -v '^$' $LOG_FILE > $LOG_FILE_CLEAN
+	echo -e "\n" >> $BATCH_FILE_CLEAN
+	
+	while read LINK
+		do
+			TITLE=$(curl $LINK | awk '/<title>/' | cut -d '>' -f 2 | cut -d '<' -f 1);
+			echo "$TITLE" >> $LOG_FILE
+	done <$BATCH_FILE_CLEAN
+	zenity --title="YoutubeD - Downloading batch" --text="Downloading youtube URLs from: $BATCH_FILE"  --info --timeout 1
+	while read LINK
+		do
+		get_youtube $LINK	
+	done <$BATCH_FILE_CLEAN
+}
+
+set_file()
+{
+	if [ -e "$BATCH_CONFIG" ]; then
+		BATCH_FILE=$(head $BATCH_CONFIG);
+	fi
+	batch_download &
+}
+
+define_file()
+{
+	IFS=$'\t\n'
+	echo "Batch text file"
+	FILE_PATH=`zenity --file-selection --file-filter=*.txt  --title="Select a batch file"`
+	case $? in
+		0) echo "$FILE_PATH" > $BATCH_CONFIG && set_file;;
+		1) zenity --warning --timeout 2 --text "YoutubeD\n\nFile selection cancelled" && interface;;
+		-1) zenity --warning --timeout 2 --text "YoutubeD\n\nFile selection cancelled" && interface;;
+	esac
+	
+}
+
+keep_log()
+{
+	echo "" > $LOG_BACKUP
+	while read LINE
+		do
+			if [ "$LINE" == "$TITLE" ]; then
+				echo $LINE
+			else
+				echo "$LINE" >> $LOG_BACKUP
+			fi
+	done <$LOG_FILE
+	grep -v '^$' $LOG_BACKUP > $LOG_FILE
+	if [ "$(stat -c %s $LOG_FILE)" -lt 2 ]; then
+		zenity --warning --timeout 2 --text "$TITLE \n download finished\n\n\nAll files downloaded"
+		echo "finished" > $LOG_BACKUP
+		LOAD_CLIPBOARD=0
+	else
+		zenity --text-info --filename=$LOG_BACKUP --width=450 --height=200 --title="$TITLE download finished - Remaining files..." --timeout 2
+	fi
+}
+
+interface()
+{
+	KEEP="$(zenity  --title "YoutubeD" --width=220 --height=275 --list  --text "YoutubeD\n\t\tA script for downloading Youtube videos with youtube-dl. \n\t\tVideos will download automatically if copied to clipboard.\n"  --radiolist --column " Option  " --column "    " TRUE "Youtube URL" FALSE "Select batch file" FALSE "Download queue" FALSE "Settings")"
+	
+	if [ "$KEEP" == "Youtube URL" ]; then
+		while [ "${PIPESTATUS}" = "0" ]; do
+			LOAD_CLIPBOARD=1
+			get_youtube
+		done
+	elif [ "$KEEP" == "Select batch file" ]; then
+		LOAD_CLIPBOARD=2
+		define_file
+	elif [ "$KEEP" == "Download queue" ]; then
+		check_log
+		if [ "$(stat -c %s $LOG_FILE)" -lt 2 ]; then
+			zenity --warning --timeout 2 --text "All files downloaded"
+			interface
+		else
+			zenity --text-info --filename=$LOG_FILE --width=450 --height=200 --title="YoutubeD - Remaining videos..."
+			interface
+		fi
+	elif [ "$KEEP" == "Settings" ]; then
+		auto_load "change"
+	fi
+exit 0;
+}
+
+start_youtubed()
+{
+LINK_HEAD="$(xclip -o -selection clipboard | awk '{ print substr( $0, 0, 5 ) }')"
+LINK_DOMAIN="$(xclip -o -selection clipboard | awk '{ print index($0,"youtube.c") }')"
+LINK="$(xclip -o -selection clipboard | awk '{ print index($0,"watch?v=") }')"
+LINK_ALT="$(xclip -o -selection clipboard | awk '{ print index($0,"/v/") }')"
+if [ "$LINK_ALT" != "0" ] && [ "$LINK_DOMAIN" != "0" ] && [ "$LINK_HEAD" = "http" ]; then
+	LOAD_CLIPBOARD=1
+	get_youtube
+elif [ "$LINK" != "0" ] && [ "$LINK_DOMAIN" != "0" ] && [ "$LINK_HEAD" = "http" ]; then
+	LOAD_CLIPBOARD=1
+	get_youtube 
+else
+	interface
+fi
+}
+start_check

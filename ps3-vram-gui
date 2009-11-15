@@ -1,0 +1,47 @@
+#! /bin/bash
+#
+# ps3-vram-gui       Use vram for swap
+#Usage: sudo ps3-vram-gui
+#Description: makes and enables vram swap on the PS3 platform
+#GUI version of ttp://us.fixstars.com/support/solutions/ydl_6.x/ps3-vram-swap
+#udev rules from geoff http://www.kernel.org/pub/linux/kernel/people/geoff/cell/ps3-conf/ps3vram-swap.rules
+#Depends on zenity
+#GUI by defpy
+#Tested on Xubuntu 9.04 - kernel 2.6.28-6
+###Check if swap is already made
+vram_gui()
+{
+#Check if we are a PS3
+if `grep -q PS3 /proc/cpuinfo `; then
+	ISPS3=true
+fi
+PS3_VRAM="$(zenity  --title "PS3-VRAM" --width=420 --height=230 --list  --text "Choose one action" --radiolist  --column "Option" --column " " TRUE "Check PS3-VRAM status" FALSE "Start PS3-VRAM" FALSE "Stop PS3-VRAM" FALSE "Initialize PS3-VRAM on every boot")"
+	echo "$PS3_VRAM"
+	if [ "$PS3_VRAM" == "Check PS3-VRAM status" ]; then
+		if `grep -q /dev/ps3vram /proc/swaps`; then
+			echo "vram swap is running"
+			zenity --info --text "PS3 vram swap is running"
+		else
+			echo "vram swap is stopped"
+			zenity --info --text "PS3 vram swap is stopped"
+		fi
+	elif [ "$PS3_VRAM" == "Start PS3-VRAM" ]; then
+		if ${ISPS3}; then
+			mkswap /dev/ps3vram && swapon -p1 /dev/ps3vram && zenity --info --text "PS3 vram swap is running" || zenity --warning --text "Must be superuser to start PS3 vram, use run or\ntype:\n\t sudo ps3-vram-gui"
+		else
+			echo "This is only for PS3's and you do not appear to be running on a PS2"
+			zenity --info --text "This is only for PS3's and you do not appear to be running on a PS2"
+		fi
+	elif [ "$PS3_VRAM" == "Stop PS3-VRAM" ]; then
+		swapoff /dev/ps3vram && zenity --info --text "PS3 vram swap is stopping"  || zenity --warning --text "Must be superuser to stop PS3 vram, use run or\ntype:\n\t sudo ps3-vram-gui"
+	elif [ "$PS3_VRAM" == "Initialize PS3-VRAM on every boot" ]; then
+		touch /etc/udev/rules.d/10-ps3vram-swap.rules && echo 'KERNEL=="ps3vram", ACTION=="add", RUN+="/sbin/mkswap /dev/ps3vram", RUN+="/sbin/swapon -p 10 /dev/ps3vram"' > /etc/udev/rules.d/10-ps3vram-swap.rules && zenity --info --text "Added to /etc/udev/rules.d/" || zenity --warning --text "Must be superuser to use this option, use run or\ntype:\n\t sudo ps3-vram-gui"
+	fi
+	
+while [ "${PIPESTATUS}" = "0" ]; do
+	vram_gui
+done
+exit 0;
+}
+vram_gui
+

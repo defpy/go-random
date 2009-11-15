@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+# A script for playing media files with ffplay / ffmpeg.
+# Youtube and streamming videos will play automatically if url is copied to clipboard.
+# Controls:     
+# F - switch fullscreen on/off          
+# P - pause          
+# Q - exit
+# Have fun ;)
+#
+# By defpy
+IFS=$'\t\n'
+#Online radios can be altered. Just change the title RADIO_NUMBER and the source RADIO_NUMBER_SRC
+RADIO_1="Virgin Radio  - The music we all love"
+RADIO_1_SRC="http://85.159.184.42:80"
+RADIO_2="ChroniX Aggression - Loud & Clear"
+RADIO_2_SRC="http://205.188.215.225:8010"
+RADIO_3=".977 The Hitz Channel"
+RADIO_3_SRC="http://205.188.215.230:8002"
+
+FF_STATUS=0
+STATUS_FILE="TRUE"
+STATUS_YOU="FALSE"
+STATUS_STR="FALSE"
+STATUS_RAD="FALSE"
+
+play_ffmpeg()
+{
+	echo "Local"
+	FF_STATUS=3
+	#echo > ${HOME}/ffplayer.log
+	FILE=`zenity --file-selection --title "Select a video file"`
+	case $? in
+		0) ffplay -stats $FILE;;
+		1) zenity --warning --text "FFPlayer\n\nSelection cancelled";;
+		-1) zenity --warning --text "FFPlayer\n\nSelection cancelled";;
+esac
+}
+
+#Samples
+#Virgin Radio  - The music we all love - Hi MP3
+#http://85.159.184.42:80
+#ChroniX Aggression - Loud & Clear - www.chronixradio.com
+#http://205.188.215.225:8010
+#.977 The Hitz Channel
+#http://205.188.215.230:8002
+#http://www.youtube.com/watch?v=zOjkYn-h0B0
+#http://www.podtrac.com/pts/redirect.avi/bitcast-a.bitgravity.com/revision3/web/coop/0107/coop--0107--mission--small.xvid.avi
+
+play_youtube()
+{
+	echo "YouTube"
+	FF_STATUS=1
+	FILE=$(xclip -o -selection clipboard);
+	if [ "$(xclip -o -selection clipboard | awk '{ print index($0,"/v/") }')" != "0" ]; then
+		FILE=$(xclip -o -selection clipboard | sed 's/\/v\//\/watch?v=/g');
+	fi
+	echo "$FILE"
+	video_id=$(curl -s $FILE | sed -n "/watch_fullscreen/s;.*\(video_id.\+\)&title.*;\1;p");
+	FMT="&fmt=18"
+	video_id="${video_id}${FMT}"
+	#ffplay -stats -x 640 -y 405 $(echo "http://youtube.com/get_video?$video_id");
+	mplayer -framedrop -x 640 -y 405 $(echo "http://youtube.com/get_video?$video_id");
+	#-x 425 -y 344
+	#-x 640 -y 405
+	start_ffplayer
+}
+
+play_stream()
+{
+	echo "Stream"
+	FF_STATUS=2
+	STREAM=$(xclip -o -selection clipboard);
+	#mplayer -vo sdl -x 640 -y 405 $STREAM
+	ffplay -stats -x 640 -y 405 $STREAM
+	start_ffplayer
+}
+
+play_radio()
+{
+	echo "Radio"
+	FF_STATUS=4
+	RADIO="$(zenity  --title "FFPlayer - Radio" --width=420 --height=200 --list  --text "Online radio" --radiolist  --column "Option" --column " " FALSE "$RADIO_1" FALSE "$RADIO_2" FALSE "$RADIO_3")"
+	echo "$RADIO"
+	if [ "$RADIO" == "$RADIO_1" ]; then
+		RADIO="$RADIO_1_SRC"
+	elif [ "$RADIO" == "$RADIO_2" ]; then
+		RADIO="$RADIO_2_SRC"
+	elif [ "$RADIO" == "$RADIO_3" ]; then
+		RADIO="$RADIO_3_SRC"
+	fi
+	if [ "$RADIO" != "" ]; then
+		ffplay -stats -x 170 -y 90 $RADIO
+	fi
+}
+
+start_ffplayer()
+{
+LINK_HEAD="$(xclip -o -selection clipboard | awk '{ print substr( $0, 0, 5 ) }')"
+LINK_DOMAIN="$(xclip -o -selection clipboard | awk '{ print index($0,"youtube.c") }')"
+LINK="$(xclip -o -selection clipboard | awk '{ print index($0,"watch?v=") }')"
+LINK_ALT="$(xclip -o -selection clipboard | awk '{ print index($0,"/v/") }')"
+if [ "$LINK_ALT" != "0" ] && [ "$LINK_DOMAIN" != "0" ] && [ "$LINK_HEAD" = "http" ] && [ "$FF_STATUS" = "0" ]; then
+	play_youtube 
+elif [ "$LINK" != "0" ] && [ "$LINK_DOMAIN" != "0" ] && [ "$LINK_HEAD" = "http" ] && [ "$FF_STATUS" = "0" ]; then
+	play_youtube 
+elif [ "$LINK_HEAD" = "http" ] && [ "$FF_STATUS" = "0" ]; then
+	play_stream
+else
+	if [ "$FF_STATUS" = "1" ]; then
+		STATUS_FILE="FALSE"
+		STATUS_YOU="TRUE"
+		STATUS_STR="FALSE"
+		STATUS_RAD="FALSE"
+	elif [ "$FF_STATUS" = "2" ]; then
+		STATUS_FILE="FALSE"
+		STATUS_YOU="FALSE"
+		STATUS_STR="TRUE"
+		STATUS_RAD="FALSE"
+	elif [ "$FF_STATUS" = "4" ]; then
+		STATUS_FILE="FALSE"
+		STATUS_YOU="FALSE"
+		STATUS_STR="FALSE"
+		STATUS_RAD="TRUE"
+	else
+		STATUS_FILE="TRUE"
+		STATUS_YOU="FALSE"
+		STATUS_STR="FALSE"
+		STATUS_RAD="FALSE"
+	fi
+	KEEP="$(zenity  --title "FFPlayer" --width=420 --height=370 --list  --text "FFPlayer\n\t\tA script for playing media files with ffplay / ffmpeg.\n\t\tYoutube and streamming videos will play automatically if \n\t\tcopied to clipboard. Online radios can be easily altered in \n\t\tthe source.\nControls:\n\t\tF - switch fullscreen on/off\n\t\tP - pause\n\t\tQ - exit" --radiolist  --column "Option" --column " " "$STATUS_FILE" "Open file" "$STATUS_YOU" "Youtube URL" "$STATUS_STR" "Streamming video URL" "$STATUS_RAD" "Online radio")"
+	
+	if [ "$KEEP" == "Open file" ]; then
+		while [ "${PIPESTATUS}" = "0" ]; do
+			play_ffmpeg
+			FF_STATUS=3
+			start_ffplayer
+		done
+	elif [ "$KEEP" == "Youtube URL" ]; then
+		while [ "${PIPESTATUS}" = "0" ]; do
+			play_youtube
+			FF_STATUS=1
+			start_ffplayer
+		done
+	elif [ "$KEEP" == "Streamming video URL" ]; then
+		while [ "${PIPESTATUS}" = "0" ]; do
+			play_stream
+			FF_STATUS=2
+			start_ffplayer
+		done
+	elif [ "$KEEP" == "Online radio" ]; then
+		while [ "${PIPESTATUS}" = "0" ]; do
+			play_radio
+			FF_STATUS=4
+			start_ffplayer
+		done
+	fi
+fi
+exit 0;
+}
+start_ffplayer

@@ -1,0 +1,72 @@
+#! /bin/bash
+#
+# GoDict - searches word in wordnet and wikipedia then gathers the results and produce wordlist and concordance
+# Might be useful to language learners
+#
+# Requires wordnet, lynx, fold, libgo (go-random script), wget, sed, grep, cat  and bash ;)
+# Under major changes, so it's still pretty buggy ;)
+# by defpy
+
+IFS=$'\t\n'
+
+echo "" > /tmp/wikipedia.txt
+echo "" > /tmp/wikipedia-wrap.txt
+echo "" > /tmp/word.txt
+echo "" > /tmp/word-wrap.txt
+echo "" > /tmp/word-rel.txt
+echo "" > /tmp/chunk.txt
+echo "" > /tmp/conc.txt
+
+export dict='<window window_position="1" title="GoDict" icon_name="gtk-add">
+<frame> 
+<hbox>
+    <text>
+      <label>Search word:</label>
+    </text>
+    <entry width_chars="45">
+      <variable>WORD</variable>
+    </entry> 
+	<button tooltip-text="Search">
+    <input file stock="gtk-redo"></input><label>Search</label>
+	<action>echo "$(./libgo -strip $WORD | sed "s/Jump to://g" | sed "s/160//g" | sed "s/[&#;]//g" | sed "s/[-\/\>\<]//g" | tr -cd "\11\12\40-\176" | sed "s_http://_ http:// _i" | grep -wv "http://" | sed "s_=_ = _i" | grep -wv "=" | sed "s_navigation, search_ navigation, search _i" | grep -wv "navigation, search")" > /tmp/wikipedia.txt ; fold -sw 140 /tmp/wikipedia.txt > /tmp/wikipedia-wrap.txt</action>
+	<action>mv /tmp/wikipedia-wrap.txt /tmp/wtemp.txt; grep -v "^$" /tmp/wtemp.txt > /tmp/wikipedia-wrap.txt</action>
+	<action>echo "$(wn $WORD -over)" > /tmp/word.txt; fold -sw 150 /tmp/word.txt > /tmp/word-wrap.txt</action>
+	<action>cat /tmp/wikipedia-wrap.txt /tmp/word-wrap.txt > /tmp/chunk.txt; echo "Total words: "$(cat /tmp/chunk.txt | wc -w) > /tmp/word-rel.txt; cat /tmp/chunk.txt | tr -sc "[A-Z][a-z]" "[\012*]" | sort | uniq -c | sort -nr >> /tmp/word-rel.txt</action>
+	<action>cat /tmp/chunk.txt | sed "s/$WORD/|${WORD}|/g" > /tmp/chunk2.txt; fold -sw 100 /tmp/chunk2.txt > /tmp/chunk.txt; echo "$(grep -i $WORD /tmp/chunk.txt)" > /tmp/conc.txt</action>
+	<action>refresh:WIKI</action>
+	<action>refresh:WORDNET</action>
+	<action>refresh:REL</action>
+	<action>refresh:CONC</action>
+   </button> 
+	</hbox><frame> 
+<notebook labels="WordNet|Wikipedia|Wordlist|Concordance" tab-pos="2" enable-popup="true">
+	 <edit use-markup="true" tooltip-text="Wordnet results" wrap="true" width-chars="150">
+    <input file>/tmp/word-wrap.txt</input>
+      <variable>WORDNET</variable>
+      <width>950</width><height>500</height>
+    </edit>
+<edit use-markup="true" tooltip-text="Wikipedia results" wrap="true" width-chars="150">
+    <input file>/tmp/wikipedia-wrap.txt</input>
+      <variable>WIKI</variable>
+      <width>950</width><height>500</height>
+    </edit>
+<edit use-markup="true" tooltip-text="Relevant word results" wrap="true" width-chars="150">
+    <input file>/tmp/word-rel.txt</input>
+      <variable>REL</variable>
+      <width>950</width><height>500</height>
+    </edit>
+<tree tooltip-text="Concordance results" width-chars="10">
+ <label>||</label>
+    <input> cat /tmp/conc.txt</input>
+      <variable>CONC</variable>
+      <width>950</width><height>500</height>
+    </tree>
+</notebook></frame> 
+<hbox> <button ok>
+   <action type="exit">exit</action>
+   </button>
+   <button cancel></button></hbox>
+</frame>
+</window>'
+
+gtkdialog --program=dict

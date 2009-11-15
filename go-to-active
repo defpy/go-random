@@ -1,0 +1,6 @@
+#!/bin/bash
+# Go to most active directory
+
+cd $(ls -d --sort=time */ | head -n 1)
+# Just change line bellow to desired file manager
+thunar &

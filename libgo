@@ -1,0 +1,17 @@
+#!/bin/bash
+WORD=$2
+youtube_title(){
+CHUNK=$(curl http://gdata.youtube.com/feeds/api/videos/$2 | grep "</media:title>" | tr -d "\t" | sed "s/^<.*>\([^<].*\)<.*>$/\1/")
+IFS="</"
+get(){ echo $2; };
+get $CHUNK
+}
+
+strip_tags(){
+echo "$(wget -nv -O - http://en.wikipedia.org/wiki/${WORD} | sed -e 's/<[^>]*>'//g)"
+}
+if [ "$1" = "-ytitle" ];then
+	youtube_title
+elif [ "$1" = "-strip" ];then
+	strip_tags
+fi
