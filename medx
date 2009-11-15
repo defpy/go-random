@@ -1,0 +1,111 @@
+#!/bin/bash
+#
+# MedX - Simple front-end for using mednafen emulator
+# Supports: Atari Lynx, GameBoy (Color), GameBoy Advance,
+# NES, PC Engine(TurboGrafx 16), SuperGrafx, Neo Geo Pocket
+# (Color), PC-FX, and WonderSwan (Color)
+# Controls: F1 - Menu / F12 - Exit
+# Have fun ;)
+# By defpy
+#-gba.xscale 3 -gba.yscale 3 -gba.xres 800 -gba.yres 600  -gba.stretch 1 
+
+IFS=$'\t\n'
+CONFIG_MED=${HOME}/.medx
+GAME_STATUS=0
+STATUS_PLAY="TRUE"
+STATUS_DIR="FALSE"
+STATUS_QUIT="FALSE"
+STATUS_SEARCH="FALSE"
+ROM_PATH=$(head ${HOME}/.medx)
+play_game()
+{
+	IFS=$'\t\n'
+	echo "Rom"
+	change_dir
+	FILE=`zenity --file-selection --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --title "Select a rom"`
+	case $? in
+		0) mednafen -sounddriver sdl -autosave 1 $FILE & GAME_STATUS=1; start_game;;
+		*) zenity --warning --timeout 2 --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --text "MedX\n\nSelection cancelled" && start_game;;
+	esac
+}
+
+change_dir()
+{
+	if [ -e "$CONFIG_MED" ]; then
+		cd $(head ${HOME}/.medx)
+	else
+		cd ${HOME}
+	fi
+}
+
+define_dir()
+{
+	IFS=$'\t\n'
+	echo "Directory"
+	DIR_PATH=`zenity --file-selection --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --directory --title="Select a ROM directory"`
+	case $? in
+		0) echo "$DIR_PATH" > ${HOME}/.medx;;
+		*) zenity --warning --timeout 2 --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --text "MedX\n\nDirectory selection cancelled";;
+	esac
+}
+
+search_game()
+{
+	GAME_STATUS=2
+	FILE="$(zenity --width=210 --entry --title "Medx" --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --text "Search game:")";
+	if [ "$FILE" = "" ]; then
+		echo "Search cancelled"
+		start_game
+	else
+		RESULT="$(find $ROM_PATH -iname "*$FILE*" | grep -i -E '(.rar|.zip|.ngp|.lnx|.pce|.ws|.gb|.gbc|.gba|.nes|.sms|.smd|.bin)$' | sed "s%$ROM_PATH\/%%" | zenity --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --list --height=400 --width=408 --title "Medx - search result" --column "Games - search result for $FILE")"
+		if [ $? = 0 ]; then
+			mednafen -sounddriver sdl -autosave 1 $ROM_PATH/$RESULT & GAME_STATUS=1; start_game
+		else
+			start_game
+		fi
+	fi
+}
+
+kill_mednafen()
+{
+	IFS=$' \t\n'
+	if [ "$(pidof mednafen)" != "" ]; then
+		for n in $(pidof mednafen); do kill -9 $n; done && echo "Mednafen killed"
+	fi
+}
+
+start_game()
+{
+	if [ "$GAME_STATUS" = "1" ]; then
+		STATUS_PLAY="FALSE"
+		STATUS_DIR="FALSE"
+		STATUS_QUIT="TRUE"
+		STATUS_SEARCH="FALSE"
+	elif [ "$GAME_STATUS" = "2" ]; then
+		STATUS_PLAY="FALSE"
+		STATUS_DIR="FALSE"
+		STATUS_QUIT="FALSE"
+		STATUS_SEARCH="TRUE"
+	else
+		STATUS_PLAY="TRUE"
+		STATUS_DIR="FALSE"
+		STATUS_QUIT="FALSE"
+		STATUS_SEARCH="FALSE"
+	fi
+	KEEP="$(zenity  --title "MedX" --window-icon=/usr/share/icons/Tango/32x32/status/sunny.png --width=320 --height=390 --list  --text "MedX\n\t\tSimple front-end for using mednafen emulator\n\nSupports:\n\t\tAtari Lynx, GameBoy (Color), GameBoy Advance, NES,\n\t\tPC Engine(TurboGrafx 16), SuperGrafx, Neo Geo Pocket\n\t\t(Color), PC-FX, and WonderSwan (Color)\nControls:\n\t\tF1 - Menu\n\t\tF12 - Exit\n" --radiolist  --column "Option" --column "" "$STATUS_PLAY" "Select a game rom" "$STATUS_SEARCH" "Search games" "$STATUS_DIR" "Select a default ROM directory" "$STATUS_QUIT" "Quit Mednafen")"
+	if [ "$KEEP" == "Select a game rom" ]; then
+		play_game
+	elif [ "$KEEP" == "Search games" ]; then
+		search_game
+	elif [ "$KEEP" == "Select a default ROM directory" ]; then
+		define_dir
+		start_game
+	elif [ "$KEEP" == "Quit Mednafen" ]; then
+		kill_mednafen
+		GAME_STATUS=0
+		start_game
+	fi
+exit 0;
+}
+
+start_game
