@@ -1,0 +1,31 @@
+#! /bin/bash
+# osxmb - gui to shutdown, reboot and set ps3 to boot to xmb next time it boots
+# by defpy (defpy@jabber.org)
+
+export xmb='<window window_position="1"  decorated="false" title="Exit" icon_name="gtk-quit" resizable="false">
+  <frame>
+   <hbox>
+    <button tooltip-text="Shutdown and boot XMB next time"><input file>./joy.png</input>
+	<action>ps3-flash-util -b; halt &</action>
+	</button>
+	<button tooltip-text="Reboot to XMB"><input file>./reboot.png</input>
+	<action>ps3-boot-game-os &</action>
+	</button>
+	<button tooltip-text="Shutdown PS3"><input file>./shutdown.png</input>
+	<action>halt &</action>
+	</button>
+	 </hbox>
+  <text>
+    <label>Exit Ubuntu</label>
+  </text>
+
+  <button cancel></button>
+   </frame>
+     
+   <action signal="hide">exit:Exit</action> 
+</window>'
+
+gtkdialog --program=xmb
+
+
+
