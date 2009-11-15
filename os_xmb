@@ -1,3 +1,0 @@
-#!/bin/sh
-ps3-flash-util -b &
-halt &
