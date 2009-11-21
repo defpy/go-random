@@ -23,7 +23,7 @@ done < $EXTENSIONS
 while read item; do
 	LIST=$(ls -p | grep -v / | grep -i "[.]${item}$")
 	if [ "$LIST" != "" ];then
-		dname="$item - folder"
+		dname="[type] $item"
 		if [ -d "$dname" ]; then
 			mv $LIST $dname
 		else
