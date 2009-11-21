@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+IFS=$'\t\n'
+
+EXTENSIONS=/tmp/extension$$
+FILTER=/tmp/extension-tmp$$
+
+organize_them(){
+INPUT=$1
+FILES=$(ls -p | grep -v / | grep "[.]" | cut -d . -f $INPUT | tr A-Z a-z | tr -cs 'a-zA-Z0-9' '[\n*]' )
+echo "$FILES" > $EXTENSIONS
+echo "" > $FILTER
+
+while read i; do
+	if [ "$(echo $i | wc -c )" -lt "9" ]; then
+		echo "$i"
+		txtconf -a $i $FILTER
+	else
+		echo "NOOO $i"
+	fi
+done < $EXTENSIONS
+
+while read item; do
+	LIST=$(ls -p | grep -v / | grep -i "[.]${item}$")
+	if [ "$LIST" != "" ];then
+		dname="$item - folder"
+		if [ -d "$dname" ]; then
+			mv $LIST $dname
+		else
+			mkdir $dname && mv $LIST $dname || echo "Could not create directory"
+		fi
+	fi
+done < $FILTER
+}
+
+NUMBER="2 3 4 5 6"
+for i in $NUMBER;do
+	organize_them $i
+done
