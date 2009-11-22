@@ -1,0 +1,45 @@
+#!/bin/bash
+# get 2 values from a string 
+# by defpy
+INPUTX="res text opt -xres 600 1212 -yres 685 num  -vxres 1212 -vyres 685"
+INPUT=$1
+
+is_integer() {
+    [ "$1" -eq "$1" ] > /dev/null 2>&1
+    return $?
+}
+
+get_num()
+{
+   NUM_A=""
+   NUM_B=""
+   for element in $INPUT; do
+      if $(is_integer $element) ; then
+         if [ "$NUM_A" = "" ]; then
+            NUM_A=$element
+         elif [ "$NUM_B" = "" ] && [ $element != $NUM_A ] ; then
+            NUM_B=$element
+         fi
+      fi
+   done
+   if [ $NUM_A -lt "300" ] || [ $NUM_B -lt "200" ]; then
+      echo "Possibly wrong values"
+   fi
+   if [ $NUM_A -gt $NUM_B ]; then
+      XNUM=$NUM_A
+      YNUM=$NUM_B
+   else
+      XNUM=$NUM_B
+      YNUM=$NUM_A
+   fi
+}
+
+if [ "$INPUT" != "" ]; then
+	get_num
+	echo $XNUM" and "$YNUM
+else
+	echo "Input string with numeric values: "
+	echo
+	echo "e.g. $INPUTX"
+fi
+
