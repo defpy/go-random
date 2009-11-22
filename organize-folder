@@ -1,5 +1,7 @@
 #!/bin/bash
 # organize files by extension, e.g. [mp4] - folder 
+# by defpy (defpy@jabber.org)
+
 IFS=$'\t\n'
 ACT=$1
 EXTENSIONS=/tmp/extension$$
@@ -18,7 +20,7 @@ while read i; do
 		echo "$i"
 		txtconf -a $i $FILTER
 	else
-		echo "NOOO $i"
+		echo "NG $i"
 	fi
 done < $EXTENSIONS
 
@@ -37,14 +39,24 @@ done < $FILTER
 
 undo_organize()
 {
-	IFS=$'\t\n'
 	FOLDER=$(ls | grep "[[type]]")
 	echo "$FOLDER" > $UNDOFOLDER
 	echo "" >> $UNDOFOLDER
 	while read i; do
 		if [ -d "$i" ];then
-			mv "$i"/* ./ 
-			rm -r $i
+			mv "$i"/* ./ && rm -r $i
+		fi
+	done < $UNDOFOLDER
+}
+
+move_one_dir_up()
+{
+	FOLDER=$(ls -d */ | grep -v "[[type]]")
+	echo "$FOLDER" > $UNDOFOLDER
+	echo "" >> $UNDOFOLDER
+	while read i; do
+		if [ -d "$i" ];then
+			mv "$i"/* ./ && rm -r $i
 		fi
 	done < $UNDOFOLDER
 }
@@ -56,15 +68,18 @@ if [ "$ACT" == "-do" ]; then
 	done
 elif [ "$ACT" == "-undo" ]; then
 	undo_organize
+elif [ "$ACT" == "-moveup" ]; then
+	move_one_dir_up
 else
 	echo
 	echo "organize-folder: move files to different folders ordered by their extensions"
 	echo
 	echo "([type] extension) e.g. [type] zip, [type] mp4 "
 	echo
-	echo "options available: -do, -undo"
-	echo "    -do"
-	echo "    -undo"
+	echo "options available: -do, -undo, -moveup"
+	echo "    -do ( move files to folders ordered by extensions: [type] extension )"
+	echo "    -undo ( move files up from folders with the pattern: [type] extension )"
+	echo "    -moveup ( move files up from all folders WITHOUT the pattern: [type] extension )"
 	exit 0;
 fi
 
