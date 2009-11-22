@@ -1,11 +1,13 @@
 #!/bin/bash
-#
+# organize files by extension, e.g. [mp4] - folder 
 IFS=$'\t\n'
-
+ACT=$1
 EXTENSIONS=/tmp/extension$$
+UNDOFOLDER=/tmp/undofolder$$
 FILTER=/tmp/extension-tmp$$
-
-organize_them(){
+organize_them()
+{
+filext=( )
 INPUT=$1
 FILES=$(ls -p | grep -v / | grep "[.]" | cut -d . -f $INPUT | tr A-Z a-z | tr -cs 'a-zA-Z0-9' '[\n*]' )
 echo "$FILES" > $EXTENSIONS
@@ -33,7 +35,41 @@ while read item; do
 done < $FILTER
 }
 
-NUMBER="2 3 4 5 6 7"
-for i in $NUMBER;do
-	organize_them $i
-done
+undo_organize()
+{
+	IFS=$'\t\n'
+	FOLDER=$(ls | grep "[[type]]")
+	echo "$FOLDER" > $UNDOFOLDER
+	echo "" >> $UNDOFOLDER
+	while read i; do
+		if [ -d "$i" ];then
+			mv "$i"/* ./ 
+			rm -r $i
+		fi
+	done < $UNDOFOLDER
+}
+
+if [ "$ACT" == "-do" ]; then
+	NUMBER="2 3 4 5 6 7"
+	for i in $NUMBER;do
+		organize_them $i
+	done
+elif [ "$ACT" == "-undo" ]; then
+	undo_organize
+else
+	echo
+	echo "organize-folder: move files to different folders ordered by their extensions"
+	echo
+	echo "([type] extension) e.g. [type] zip, [type] mp4 "
+	echo
+	echo "options available: -do, -undo"
+	echo "    -do"
+	echo "    -undo"
+	exit 0;
+fi
+
+
+
+
+
+
