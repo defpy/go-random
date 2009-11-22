@@ -1,0 +1,437 @@
+#! /bin/bash
+#
+# GoPlayer 0.3
+# Simple media player that relies on mpg321 for mp3 and ffplay for video files
+# by defpy  (defpy@jabber.org)
+
+INPUT=$1
+export IFS=$'\t\n'
+export OLD_IFS=$'\t\n'
+export SIFS=@
+export LOCAL=${HOME}/.goplayer-home
+export LOCAL_V=${HOME}/.goplayer-home-video
+export LOCAL_DIR="$(head $LOCAL)"
+export LOCAL_DIR_V="$(head $LOCAL_V)"
+cd $LOCAL_DIR
+echo $LOCAL
+echo $LOCAL_DIR
+
+export LIST=${HOME}/goplay.m3u
+export LIST_F=${HOME}/goplayfull.m3u
+export LIST_RADIO=${HOME}/goplayradio.m3u
+export LIST_VIDEO=${HOME}/goplayvideo.m3u
+export NOW_PLAYING=${HOME}/goplaynow.m3u
+echo "Stopped" > $NOW_PLAYING
+
+if [ -d "/tmp/youtube/now" ]; then
+	echo "Youtube temp dir exists"
+else
+	mkdir -p /tmp/youtube/now
+fi
+
+if [ -e "/usr/share/icons/goplay.png" ]; then
+	cp /usr/share/icons/goplay.png /tmp
+fi
+if [ -e "$LOCAL_DIR" ]; then
+	echo "Favorite directory available"
+	ls -1 $LOCAL_DIR | grep -i ".mp3" > $LIST
+	export LOCAL_DIR="$(head $LOCAL)"
+else
+	echo "Favorite directory not found, creating default home list"
+	echo "${HOME}" > $LOCAL
+	ls -1 ${HOME} | grep -i ".mp3" > $LIST
+	export LOCAL_DIR="${HOME}"
+fi
+
+if [ -e "$LOCAL_DIR_V" ]; then
+	echo "Favorite video directory available"
+	ls -1 $LOCAL_DIR_V | grep -i -E '(.avi|.flv|.mp4|.rmvb|.mkv)$' > $LIST_VIDEO
+	export LOCAL_DIR_V="$(head $LOCAL_V)"
+else
+	echo "Favorite video directory not found, creating default home video list"
+	echo "${HOME}" > $LOCAL_V
+	ls -1 ${HOME} | grep -i -E '(.avi|.flv|.mp4|.rmvb|.mkv)$' > $LIST_VIDEO
+	export LOCAL_DIR_V="${HOME}"
+fi
+
+if [ -e "$LIST_F" ]; then
+	echo "Full path playlist available"
+else
+	echo "Playlist not found, creating empty full-list"
+	find $(head $LOCAL) -type f -name "*.mp3" | sort -n > $LIST_F
+fi
+
+if [ -e "$LIST_RADIO" ]; then
+	echo "Online radio playlist available"
+else
+	echo "Playlist not found, creating default list"
+	echo "Absolute Radio @http://mp3-vr-128.as34763.net:80/ " >> $LIST_RADIO
+	echo "Absolute Xtreme @http://mp3-vx-128.as34763.net:80/" >> $LIST_RADIO
+	echo "Absolute Classic Rock @http://mp3-vc-128.as34763.net:80/" >> $LIST_RADIO
+	echo "SomaFM: Groove Salad @http://streamer-ntc-aa07.somafm.com:80/stream/1018" >> $LIST_RADIO
+	echo "SomaFM: Lush @http://streamer-ntc-aa02.somafm.com:80/stream/1073" >> $LIST_RADIO
+	echo "SomaFM: Secret Agent @http://streamer-mtc-aa02.somafm.com:80/stream/1021" >> $LIST_RADIO
+	echo "SomaFM: Drone Zone @http://streamer-ntc-aa01.somafm.com:80/stream/1032" >> $LIST_RADIO
+fi
+
+export about='<window window_position="3" title="GoPlayer - About" icon_name="gtk-cdrom" resizable="false">
+ <vbox>
+  <frame><pixmap tooltip-text="GoPlayer">
+    <input file>/tmp/goplay.png</input>
+  </pixmap>
+  <text>
+    <label>- GoPlayer 0.3 -</label>
+  </text>
+  <text wrap="true" width-chars="50">
+    <label>Simple media player front-end written in gtkdialog and bash that relies on mpg321 for mp3 files, ffmpeg (ffplay) for video files and youtube-dl for youtube downloads.</label>
+  </text>
+  <text>
+    <label>- by defpy (defpy@jabber.org) -</label>
+  </text>
+
+ </frame>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+</window>'
+
+export dir='<window window_position="3" title="GoPlayer - Select default media directory" icon_name="gtk-cdrom">
+<vbox>
+  <frame Default directories>
+ <text wrap="true" width-chars="60">
+    <label>Select mp3 and video default directories. These locations will be used as base for playlists in the main window</label>
+  </text>
+    <hbox><text>
+    <label>Music directory</label>
+  </text>
+      <entry accept="directory">
+        <variable>MUSIC_DIRECTORY</variable>
+      </entry>
+      <button>
+        <input file stock="gtk-open"></input>
+        <variable>MUSIC_DIR</variable>
+        <action type="fileselect">MUSIC_DIRECTORY</action>
+      </button>
+	   <button ok>
+	   <action>echo "$MUSIC_DIRECTORY" > $LOCAL; ls -1 $(head $LOCAL) | grep -i ".mp3" > $LIST; find $(head $LOCAL) -type f -name "*.mp3" | sort -n > $LIST_F</action>
+	  <action type="exit">exit</action>
+	</button>
+	</hbox>
+    <hbox><text>
+    <label>Video directory</label>
+  </text>
+      <entry accept="directory">
+        <variable>VIDEO_DIRECTORY</variable>
+      </entry>
+      <button>
+        <input file stock="gtk-open"></input>
+        <variable>VIDEO_DIR</variable>
+        <action type="fileselect">VIDEO_DIRECTORY</action>
+      </button>
+	  <button ok>
+	  <action>echo "$VIDEO_DIRECTORY" > $LOCAL_V ; ls -1 $(head $LOCAL_V) | grep -i -E "(.avi|.flv|.mp4|.rmvb|.mkv)$" > $LIST_VIDEO </action>
+		<action type="exit">exit</action>
+	 </button>
+    </hbox>
+  </frame>
+    <hbox>
+   <button ok>
+    <action>echo "$MUSIC_DIRECTORY" > $LOCAL; ls -1 $(head $LOCAL) | grep -i ".mp3" > $LIST; find $(head $LOCAL) -type f -name "*.mp3" | sort -n > $LIST_F</action>
+	<action>echo "$VIDEO_DIRECTORY" > $LOCAL_V ; ls -1 --sort=time $(head $LOCAL_V) | grep -i -E "(.avi|.flv|.mp4|.rmvb|.mkv)$" > $LIST_VIDEO </action>
+	<action type="exit">exit</action>
+   </button>
+   <button cancel></button>
+  </hbox>
+  </vbox>
+</window>'
+
+export radio_delete='<window window_position="1" title="GoPlayer - Delete Station" icon_name="gtk-cdrom">
+<frame>
+<tree tooltip-text="Select radio station to delete">
+ <label>Select radio station to delete</label>
+ <input>cat $LIST_RADIO </input>
+ <variable>TREE_D</variable>
+ <height>250</height><width>570</width>
+</tree>
+<hbox> <button ok>
+   <action>sed -ie "\|^$TREE_D\$|d" $LIST_RADIO</action>
+   <action type="exit">exit</action>
+   </button>
+   <button cancel></button></hbox>
+</frame>
+</window>'
+
+export radio='<window window_position="3" title="GoPlayer - Add Station" icon_name="gtk-cdrom">
+ <vbox>
+  <frame>
+  <hbox> 
+    <text>
+      <label>Station title:</label>
+    </text>
+    <entry activates_default="true">
+      <default>New Station</default>
+      <variable>STATION</variable>
+    </entry>
+  </hbox>
+  <hbox>
+    <text>
+      <label>Station URL: </label>
+    </text>
+    <entry width_chars="45">
+      <variable>URL</variable>
+    </entry>
+  </hbox>
+  <hbox>
+   <button ok>
+    <action>echo $STATION" @"$URL >> $LIST_RADIO</action>
+   <action>refresh:TREE_R</action>
+   <action type="exit">exit</action>
+   </button>
+   <button cancel></button>
+  </hbox> </frame>
+ </vbox></window>
+'
+export finished='<window window_position="3" title="GoPlayer - Finished downloading" icon_name="gtk-cdrom" resizable="false">
+ <vbox>
+  <frame><pixmap tooltip-text="GoPlayer">
+    <input file>/tmp/goplay.png</input>
+  </pixmap>
+  <text>
+    <label>- Youtube download finished -</label>
+  </text>
+ </frame>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+</window>'
+
+export play_again='<window window_position="3" title="GoPlayer - Play again?" icon_name="gtk-cdrom" resizable="false">
+ <vbox>
+  <frame><pixmap tooltip-text="GoPlayer">
+    <input file>/tmp/goplay.png</input>
+  </pixmap>
+  <text>
+    <label>- Play Youtube video again? -</label>
+  </text>
+ </frame>
+  <hbox>
+   <button ok>
+   <action>cd /tmp/youtube/now; ffplay -x 640 -y 405 *.flv &</action>
+    <action type="exit">exit</action>
+   </button>
+     <button cancel></button>
+  </hbox>
+ </vbox>
+</window>'
+
+
+export youtube='<window window_position="3" title="GoPlayer - Download Youtube video" icon_name="gtk-cdrom">
+ <vbox>
+  <frame Download or watch Youtube>
+  <notebook labels="Play now|Save Video|Play last video" tab-pos="3" enable-popup="true">
+  <hbox>
+    <text>
+      <label>Youtube URL:</label>
+    </text>
+    <entry width_chars="45">
+      <variable>URL_NOW</variable>
+    </entry> 
+	<button tooltip-text="Just play it now">
+    <input file stock="gtk-media-play"></input><label>Just Play</label>
+	<action>cd /tmp/youtube/now; rm *.flv; youtube-dl $URL_NOW & sleep 2 && ffplay -x 640 -y 405 *.flv && gtkdialog --program=play_again &</action>
+	 <action type="exit">exit</action>
+   </button> 
+	</hbox>
+	  <hbox>
+   <text>
+      <label>Save as</label>
+    </text>
+	<entry activates_default="true" width_chars="15" tooltip-text="Video title you want">
+      <default>Youtube Video</default>
+      <variable>TITLE</variable>
+    </entry> 
+    <text>
+      <label>Youtube URL:</label>
+    </text>
+    <entry width_chars="20">
+      <variable>URL</variable>
+    </entry>
+	<button tooltip-text="Save it">
+	<input file stock="gtk-floppy"></input><label>Save it</label>
+	 <action>cd $LOCAL_DIR_V; youtube-dl -o $TITLE".flv" $URL && gtkdialog --program=finished &</action>
+		<action>ls -1 $LOCAL_DIR_V | grep -i -E "(.avi|.flv|.mp4|.rmvb|.mkv)$" | sort -M -r  > $LIST_VIDEO</action>
+		<action>refresh:TREE_V</action>
+		<action>refresh:NOW</action>
+   <action type="exit">exit</action>
+   </button>
+  </hbox><hbox> 
+  <text wrap="true" width-chars="50">
+    <label>- Play buffered Youtube video again? -</label>
+  </text>
+   <button ok>
+   <action>cd /tmp/youtube/now; ffplay -x 640 -y 405 *.flv &</action>
+    <action type="exit">exit</action>
+   </button>
+ </hbox>
+</notebook><hbox><button cancel></button></hbox></frame>
+ </vbox></window>
+'	
+export script='<window window_position="1" title="GoPlayer 0.3" icon_name="gtk-cdrom">
+<vbox>
+  <menubar>
+    <menu>
+       <menuitem icon="gtk-open"><label>Open file</label>
+	<action>cd ${HOME}; FILE=$(zenity --file-selection --file-filter=*.* --file-filter=*.avi --file-filter=*.mp4 --file-filter=*.mp3 --file-filter=*.rmvb --file-filter=*.flv --file-filter=*.mkv --title "Select a file");  ffplay -x 640 -y 405 "$FILE" & echo "$FILE" > $NOW_PLAYING</action>
+	<action>killall mpg321</action>
+	<action>refresh:NOW</action>
+	</menuitem>
+      <separator></separator>
+      <menuitem stock="gtk-quit">
+	  <action>killall mpg321</action>
+ <action type="exit">exit</action>
+      </menuitem>
+      <label>File</label>
+    </menu>
+    <menu>
+	<menuitem icon="gtk-open"><label>Default media directories</label>
+        <action>cd ${HOME}; gtkdialog --program=dir</action>
+		<action>refresh:TREE</action>
+		<action>refresh:TREE_V</action>
+	  <action>refresh:NOW</action>
+	</menuitem>
+	<menuitem icon="gtk-add"><label>Add radio station</label>
+	<action>gtkdialog --program=radio</action>
+		<action>STATION="New station"</action>
+		<action>refresh:TREE_R</action>
+		<action>refresh:NOW</action>
+	</menuitem>
+	<menuitem icon="gtk-remove"><label>Remove radio station</label>
+		<action>gtkdialog --program=radio_delete</action>
+		<action>refresh:TREE_R</action>
+		<action>refresh:NOW</action>
+	</menuitem>
+	<menuitem icon="gtk-cdrom"><label>Restore default radio stations</label>
+		<action>rm $LIST_RADIO</action>
+		<action>echo "Absolute Radio @http://mp3-vr-128.as34763.net:80/ " >> $LIST_RADIO</action>
+		<action>echo "Absolute Xtreme @http://mp3-vx-128.as34763.net:80/" >> $LIST_RADIO</action>
+		<action>echo "Absolute Classic Rock @http://mp3-vc-128.as34763.net:80/" >> $LIST_RADIO</action>
+		<action>echo "SomaFM: Groove Salad @http://streamer-ntc-aa07.somafm.com:80/stream/1018" >> $LIST_RADIO</action>
+		<action>echo "SomaFM: Lush @http://streamer-ntc-aa02.somafm.com:80/stream/1073" >> $LIST_RADIO</action>
+		<action>echo "SomaFM: Secret Agent @http://streamer-mtc-aa02.somafm.com:80/stream/1021" >> $LIST_RADIO</action>
+		<action>echo "SomaFM: Drone Zone @http://streamer-ntc-aa01.somafm.com:80/stream/1032" >> $LIST_RADIO</action>
+		<action>refresh:TREE_R</action>
+		<action>refresh:NOW</action>
+	</menuitem>
+		<menuitem icon="gtk-convert"><label>Youtube</label>
+       	<action>gtkdialog --program=youtube &</action>
+	</menuitem>
+      <label>Option</label>
+    </menu>
+    <menu>
+	<menuitem icon="gtk-about">
+	  <label>About GoPlayer</label>
+	  <action>gtkdialog --program=about &</action>
+	</menuitem>
+	<label>About</label>
+    </menu>
+  </menubar>
+  <hbox><vbox>  
+  <pixmap tooltip-text="GoPlayer">
+    <input file>/tmp/goplay.png</input>
+  </pixmap>
+  <hbox>
+  <button tooltip-text="Start">
+   <variable>START</variable>
+    <input file stock="gtk-media-play"></input>
+    <action> killall mpg321</action>
+	<action> killall ffplay</action>
+	 <action>echo "$(head $LIST)" > $NOW_PLAYING</action>
+	<action>refresh:NOW</action>
+	<action>refresh:PLAY</action>
+  </button>
+  <button tooltip-text="Stop">
+    <input file icon="gtk-media-stop"></input>
+    <action> killall mpg321</action>
+	<action>killall ffplay</action>
+  </button></hbox>
+  <hbox><button tooltip-text="Playlist">
+    <input file icon="gtk-edit"></input>
+    <action> killall mpg321; echo "Playing playlist" > $NOW_PLAYING;  killall ffplay</action>
+	 <action>refresh:NOW</action>
+	 <action> mpg321 --list $LIST_F &</action>
+  </button>
+  <button tooltip-text="Random playlist">
+    <input file icon="gtk-refresh"></input>
+    <action> killall mpg321; echo "Playing shuffled playlist" > $NOW_PLAYING; killall ffplay </action>
+	 <action>refresh:NOW</action>
+	<action> mpg321 --shuffle --list $LIST_F &</action>
+  </button></hbox>
+  </vbox> 
+ <frame><notebook labels="Local|Radio|Video" tab-pos="2" enable-popup="true">
+<tree rules_hint="true" hover-selection="true" tooltip-text="Select mp3 to play">
+ <label>Playlist</label>
+ <input>cat $LIST </input>
+ <variable>TREE</variable>
+ <height>200</height><width>450</width>
+ <action signal="button-press-event">echo $TREE > $NOW_PLAYING; killall mpg321; killall ffplay</action>
+  <action signal="button-press-event">refresh:NOW</action>
+ <action signal="button-release-event">mpg321 $(head $LOCAL)"/"$(head $NOW_PLAYING) & </action>
+</tree> 
+<tree tooltip-text="Select radio station">
+ <label>Stations</label>
+ <input>cat $LIST_RADIO </input>
+ <variable>TREE_R</variable>
+ <height>200</height><width>450</width>
+ <action signal="button-press-event">echo $TREE_R > $NOW_PLAYING; killall mpg321; killall ffplay</action>
+  <action signal="button-press-event">refresh:NOW</action>
+ <action signal="button-release-event">IFS=$SIFS; get(){ echo $2; }; mpg321 $(get $TREE_R) & IFS=$OLD_IFS </action>
+</tree> 
+<tree tooltip-text="Select video to play">
+ <label>Files</label>
+ <input>cat $LIST_VIDEO </input>
+ <variable>TREE_V</variable>
+ <height>200</height><width>450</width>
+ <action signal="button-press-event">echo $TREE_V > $NOW_PLAYING; killall mpg321; killall ffplay</action>
+  <action signal="button-press-event">refresh:NOW</action>
+  <action signal="button-release-event">ffplay -x 640 -y 405 $(head $LOCAL_V)"/"$(head $NOW_PLAYING) & </action>
+</tree></notebook></frame>
+<vbox><text><label>Vol.</label></text><button tooltip-text="Volume up">
+    <input file icon="gtk-go-up"></input>
+    <action>amixer -q set PCM 20+ unmute</action>
+  </button>
+  <button tooltip-text="Volume down">
+    <input file icon="gtk-go-down"></input>
+    <action> amixer -q set PCM 20- unmute </action>
+  </button></vbox>
+</hbox>
+<hbox>
+<entry has_frame="false" editable="false" tooltip-text="Status"><variable>NOW</variable><input>echo $(head -1 $NOW_PLAYING)</input></entry>
+  <checkbox visible="false">
+  <variable>PLAY</variable>
+  <default>true</default>
+  <input>if [ "$PLAY" = "false" ]; then echo "true"; else echo "false"; fi</input>
+  <action>if true mpg321 $(head -1 $LIST) &</action>
+ </checkbox>
+ <button tooltip-text="Refresh">
+    <input file icon="gtk-refresh"></input><label>Refresh playlist</label>
+    <action>ls -1 $(head $LOCAL) | grep -i ".mp3" > $LIST</action>
+	<action>ls -1 $(head $LOCAL_V) | grep -i -E "(.avi|.flv|.mp4|.rmvb|.mkv)$" | sort -M -r  > $LIST_VIDEO</action>
+	<action>refresh:TREE</action>
+	<action>refresh:TREE_R</action>
+	<action>refresh:TREE_V</action>
+  </button>
+ </hbox>
+ </vbox>
+ <action signal="hide">exit:Exit</action> 
+</window>'
+
+if [ "$INPUT" == "" ]; then
+	gtkdialog --program=script
+else
+	ffplay -x 640 -y 405 $INPUT
+	gtkdialog --program=script
+fi
+
+
