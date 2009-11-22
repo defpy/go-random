@@ -35,6 +35,8 @@ while read item; do
 		fi
 	fi
 done < $FILTER
+rm $FILTER
+rm $EXTENSIONS
 }
 
 undo_organize()
@@ -47,10 +49,16 @@ undo_organize()
 			mv "$i"/* ./ && rm -r $i
 		fi
 	done < $UNDOFOLDER
+	rm $UNDOFOLDER
 }
 
 move_one_dir_up()
 {
+
+	if [ "$(echo $PWD | grep "/home/")" == "" ];then 
+		echo "not home dir"
+		exit 1; 
+	fi
 	FOLDER=$(ls -d */ | grep -v "[[type]]")
 	echo "$FOLDER" > $UNDOFOLDER
 	echo "" >> $UNDOFOLDER
@@ -59,6 +67,7 @@ move_one_dir_up()
 			mv "$i"/* ./ && rm -r $i
 		fi
 	done < $UNDOFOLDER
+	rm $UNDOFOLDER
 }
 
 if [ "$ACT" == "-do" ]; then
@@ -82,9 +91,3 @@ else
 	echo "    -moveup ( move files up from all folders WITHOUT the pattern: [type] extension )"
 	exit 0;
 fi
-
-
-
-
-
-
