@@ -4,17 +4,12 @@
 
 IFS=$'\t\n'
 ACT=$1
-EXTENSIONS=/tmp/extension$$
-UNDOFOLDER=/tmp/undofolder$$
-TOTAL=0
-PERC=0
 
 organize_them(){
 INPUT=$1
 FILES=$(ls -p | grep -v / | grep "[.]" | cut -d . -f $INPUT | tr A-Z a-z | tr -cs "a-zA-Z0-9" "[\n*]" )
-echo "$FILES" > $EXTENSIONS
 
-while read item; do
+for item in $FILES;do
 	LIST=$(ls -p | grep -v / | grep -i "[.]${item}$")
 	if [ "$LIST" != "" ];then
 		dname="[type] $item"
@@ -24,22 +19,17 @@ while read item; do
 			mkdir $dname && mv $LIST $dname || echo "Could not create directory"
 		fi
 	fi
-
-done < $EXTENSIONS
-rm $EXTENSIONS
+done
 }
 
 undo_organize()
 {
-	FOLDER=$(ls | grep "[[type]]")
-	echo "$FOLDER" > $UNDOFOLDER
-	echo "" >> $UNDOFOLDER
-	while read i; do
+	FOLDER=$(ls -d */ | grep "[[type]]")
+	for i in $FOLDER;do
 		if [ -d "$i" ];then
 			mv "$i"/* ./ && rm -r $i
 		fi
-	done < $UNDOFOLDER
-	rm $UNDOFOLDER
+	done
 }
 
 move_one_dir_up()
@@ -50,14 +40,11 @@ move_one_dir_up()
 		exit 1; 
 	fi
 	FOLDER=$(ls -d */ | grep -v "[[type]]")
-	echo "$FOLDER" > $UNDOFOLDER
-	echo "" >> $UNDOFOLDER
-	while read i; do
+	for i in $FOLDER;do
 		if [ -d "$i" ];then
 			mv "$i"/* ./ && rm -r $i
 		fi
-	done < $UNDOFOLDER
-	rm $UNDOFOLDER
+	done
 }
 
 if [ "$ACT" == "-do" ]; then

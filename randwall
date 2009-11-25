@@ -13,7 +13,7 @@ wall_paper()
 	FILE=$(head .wall.config);
 	if [ "$BG_IMG" != "$FILE" ]; then
 		echo $BG_IMG > .wall.config
-		feh --bg-scale "$FILE"
+		feh --bg-scale "$BG_IMG"
 		exit 0;
 	else
 		wall_paper
